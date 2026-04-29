@@ -1,19 +1,16 @@
 import { Response, Router, NextFunction } from "express";
 import { auth, authorization, myreq } from "../../middleware/auth.middleware";
-import { userModel } from "../../DB";
 import { Igetprofilegeneric } from "./user.entity";
 import { successResponse } from "../../common/response";
 import { logoutSchema, updatePasswordSchema } from "./user.validation";
-import { BadRequestException } from "../../common";
 import  userService  from "./user.service";
+import { validation } from "../../middleware";
 
 const router=Router()
 router.get("/get-my-profile",auth,authorization(0),async(req:myreq,res:Response,next:NextFunction):Promise<Response>=>{
-    
-      const user = await userModel.findById((req.user as {  id: string;
-  email: string;
-  role: number;}).id)
-
+     
+      const user = await userService.getProfile(req.user?.id as string)
+      
   
   return successResponse<Igetprofilegeneric>({
   
@@ -28,14 +25,8 @@ router.get("/get-my-profile",auth,authorization(0),async(req:myreq,res:Response,
       })
 
 })
-router.patch("/update-password",auth,async(req:myreq,res:Response,next:NextFunction):Promise<Response> =>{
-const result = await updatePasswordSchema.body.safeParseAsync(req.body);
+router.patch("/update-password",validation(updatePasswordSchema),auth,async(req:myreq,res:Response,next:NextFunction):Promise<Response> =>{
 
-    if (!result.success) {
-      throw new BadRequestException("validation error", {
-        cause: result.error.flatten(),
-      });
-    }
     userService.updatePassword({id:req.user?.id,oldPassword:req.body.oldPassword,password:req.body.password})
     return successResponse({
 
@@ -44,13 +35,8 @@ const result = await updatePasswordSchema.body.safeParseAsync(req.body);
       status: 200
     })
 })
-router.post("/logout",auth,async(req:myreq,res:Response,next:NextFunction):Promise<Response> =>{
-    const valids=await logoutSchema.body.safeParseAsync(req.body)
-    if (!valids.success) {
-      throw new BadRequestException("validation error", {
-        cause: valids.error.flatten(),
-      });
-    }
+router.post("/logout",validation(logoutSchema),auth,async(req:myreq,res:Response,next:NextFunction):Promise<Response> =>{
+
     console.log(req.body.flag);
     
     userService.logout({id:req.user?.id,decoded:req.decoded,flag:req.body.flag})

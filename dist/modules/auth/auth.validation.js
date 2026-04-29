@@ -15,7 +15,10 @@ exports.signupSchema = {
         confirmPassword: zod_1.z.string()
     }).refine((data) => {
         return data.password === data.confirmPassword;
-    }, { error: "mismatach" })
+    }, { error: "mismatach" }),
+    query: zod_1.z.object({
+        flag: zod_1.z.coerce.boolean()
+    }).strict()
 };
 exports.confirmEmailSchema = {
     body: zod_1.z.strictObject({

@@ -1,4 +1,4 @@
-export const funcs=(code:string)=>{
+export const funcs=(code:String):string=>{
     return`<!DOCTYPE html>
                 <html>
                 <head>

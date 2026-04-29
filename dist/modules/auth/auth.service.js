@@ -12,8 +12,14 @@ const DB_1 = require("../../DB");
 const bcrypt_1 = require("bcrypt");
 const node_crypto_1 = require("node:crypto");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const cofig_env_1 = require("../../.env/cofig.env");
+const repo_1 = require("../../DB/model/repo");
+const enums_1 = require("../../common/enums");
 class AuthService {
-    constructor() { }
+    userRepo;
+    constructor() {
+        this.userRepo = new repo_1.DBrepo(DB_1.userModel);
+    }
     generateOtpAndSendEmail = async (email) => {
         if (await (0, DB_1.TTL)(`OTP::User::blocked2::${email}`) > 0) {
             throw new Error("you are already blocked", { cause: { status: 409 } });
@@ -28,7 +34,7 @@ class AuthService {
             throw new Error("you are blocked", { cause: { status: 409 } });
         }
         const code = `${(0, otp_1.createNumberOtp)()}`;
-        const hashedCode = await (0, bcrypt_1.hash)(code, 8);
+        const hashedCode = await (0, bcrypt_1.hash)(code, cofig_env_1.HASH_ROUND);
         await (0, DB_1.set)({ key: `OTP::User::2${email}`, val: `${hashedCode}`, ttl: 120 });
         cmo > 0 ? await (0, DB_1.inc)(`otp:max:req:2${email}`) : await (0, DB_1.set)({ key: `otp:max:req:2${email}`, val: 1, ttl: 300 });
         await (0, sendEmail_1.sendEmail)(email, "confirm-email", (0, emailTemp_1.funcs)(code));
@@ -47,7 +53,7 @@ class AuthService {
                 ttl: 300
             });
         }
-        const user = await DB_1.userModel.findOne({ email, provider: "system", confirmEmail: { $exists: true } });
+        const user = await this.userRepo.findOneM({ data: { email, provider: enums_1.ProviderEnum.system, confirmEmail: { $exists: true } }, projection: {} });
         if (!user)
             throw new common_1.notFoundException("invalid email or password");
         const wrongPassword = !(await (0, bcrypt_1.compare)(password, user.password));
@@ -56,18 +62,28 @@ class AuthService {
             throw new common_1.notFoundException("invalid email or password");
         }
         const jwtid = (0, node_crypto_1.randomUUID)();
-        const token = jsonwebtoken_1.default.sign({ id: user._id, email }, "JWT_SECRET", { expiresIn: "15m", jwtid });
-        const refreshToken = jsonwebtoken_1.default.sign({ sub: user.id }, "REFRESH_SECRET", { expiresIn: "7d", jwtid });
+        const accessOptions = {
+            expiresIn: cofig_env_1.tokenexpires,
+            jwtid,
+        };
+        const refreshOptions = {
+            expiresIn: cofig_env_1.REFRESH_SECRETtokenexpires,
+            jwtid,
+        };
+        const token = jsonwebtoken_1.default.sign({ id: user._id, email }, cofig_env_1.JWT_SECRET, accessOptions);
+        const refreshToken = jsonwebtoken_1.default.sign({ sub: user.id }, cofig_env_1.REFRESH_SECRET, refreshOptions);
         await (0, DB_1.delete1)(`wrongPAssword2${email}`);
         return { token, refreshToken };
     };
     signup = async (data) => {
         const { email, password, username, gender } = data;
-        const found = await DB_1.userModel.findOne({ email });
+        const found = await this.userRepo.findOneM({ data: { email }, projection: {} });
         if (found)
             throw new common_1.conflictException("user already exists");
-        const hashed = await (0, bcrypt_1.hash)(password, 8);
-        const user = await DB_1.userModel.create({ email, password: (hashed), gender, username });
+        const hashed = await (0, bcrypt_1.hash)(password, cofig_env_1.HASH_ROUND);
+        const genderValue = gender === "female" ? enums_1.GenderEnum.female : enums_1.GenderEnum.male;
+        const user = await this.userRepo.create({ data: { username, email, password: hashed, provider: enums_1.ProviderEnum.system, gender: genderValue }
+        });
         await this.generateOtpAndSendEmail(email);
         return {
             email: user.email,
@@ -77,7 +93,7 @@ class AuthService {
     };
     confirmEmail = async (data) => {
         const { email, otp } = data;
-        let user1 = await DB_1.userModel.findOne({ email, confirmEmail: { $exists: false }, provider: "system" });
+        let user1 = await this.userRepo.findOneM({ data: { email, confirmEmail: { $exists: false }, provider: enums_1.ProviderEnum.system }, projection: {} });
         if (!user1)
             throw new common_1.notFoundException("user not found");
         const hasshedOTP = await (0, DB_1.get1)(`OTP::User::2${email}`);
@@ -99,7 +115,7 @@ class AuthService {
     };
     reSendConfirmEmail = async (data) => {
         const { email } = data;
-        let user1 = await DB_1.userModel.findOne({ email, confirmEmail: { $exists: false }, provider: "system" });
+        let user1 = await this.userRepo.findOneM({ data: { email, confirmEmail: { $exists: false }, provider: enums_1.ProviderEnum.system }, projection: {} });
         if (!user1)
             throw new common_1.notFoundException("user not found");
         if (await (0, DB_1.TTL)(`OTP::User::2${email}`) > 0) {
@@ -124,11 +140,11 @@ class AuthService {
         if (!match) {
             throw new common_1.BadRequestException("OTP is not correct");
         }
-        const user = await DB_1.userModel.findOne({ email, confirmEmail: { $exists: true }, provider: "system" });
+        const user = await this.userRepo.findOneM({ data: { email, confirmEmail: { $exists: true }, provider: enums_1.ProviderEnum.system }, projection: {} });
         if (!user) {
             throw new common_1.notFoundException("user not found");
         }
-        const hashedPassword = await (0, bcrypt_1.hash)(password, 8);
+        const hashedPassword = await (0, bcrypt_1.hash)(password, cofig_env_1.HASH_ROUND);
         user.password = hashedPassword;
         await user.save();
         await (0, DB_1.delete1)(`OTP::User::2${email}`);

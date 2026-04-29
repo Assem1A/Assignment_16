@@ -36,53 +36,36 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.userModel = exports.users = void 0;
 exports.users = [];
 const mongoose_1 = __importStar(require("mongoose"));
-const zod_1 = require("zod");
+const mongoose_2 = require("mongoose");
+const enums_1 = require("../../common/enums");
 const userSchema = new mongoose_1.Schema({
-    username: {
-        type: String,
-        required: true,
-        minLength: 2,
-        maxLength: 25
-    },
-    email: {
-        type: String,
-        required: true,
-        unique: true
-    },
-    DOB: Date,
-    password: {
-        type: String,
-        required: true,
-        minLength: 8
-    },
-    verificationExpires: {
-        type: Date || zod_1.string,
-        default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
-        expires: 0
-    },
-    gender: {
-        type: String,
-        enum: ["male", "female"],
-        default: "male"
-    },
-    phone: String,
-    confirmEmail: Date, _2stepVerification: Date,
-    provider: {
-        type: String,
-        enum: ["system", "gmail"],
-        default: "system"
-    },
-    profileCoverPic: { type: [String], default: null },
-    profileImage: { type: String, default: null }, CCT: Date,
-    role: {
-        type: Number,
-        enum: [0, 1],
-        default: 0
-    }
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    phone: { type: String },
+    profilePicutre: { type: String },
+    profileCoverPictures: { type: [String] },
+    gender: { type: Number, enum: enums_1.GenderEnum, default: enums_1.GenderEnum.male },
+    role: { type: Number, required: false },
+    provider: { type: Number, enum: enums_1.ProviderEnum, default: 0 },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: function () {
+            return this.provider === 0;
+        } },
+    DOB: { type: Date },
+    CCT: { type: Date },
+    confirmEmail: { type: Date },
 }, {
     collection: "Users",
     timestamps: true,
     strict: true,
-    strictQuery: false
+    strictQuery: false,
+    virtuals: true
 });
-exports.userModel = mongoose_1.default.model("Users", userSchema);
+userSchema.virtual("username").set(function (value) {
+    const [firstName, lastName] = (value.split(" ") || []);
+    this.firstName = firstName;
+    this.lastName = lastName;
+}).get(function () {
+    return `${this.firstName} ${this.lastName}`;
+});
+exports.userModel = mongoose_2.models.User || mongoose_1.default.model("Users", userSchema);

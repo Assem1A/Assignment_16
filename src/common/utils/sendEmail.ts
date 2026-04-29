@@ -1,14 +1,15 @@
 import nodemailer from "nodemailer"; 
+import { EMAILY, PASSWORDY } from "../../.env/cofig.env";
 
-export const sendEmail = async (to:string,subjext:string,html:string, cc?:null, bcc?:null, attachments = []) => {
+export const sendEmail = async (to:string,subjext:string,html:string, cc?:null, bcc?:null, attachments = []):Promise<void> => {
 
     // Create a transporter using Ethereal test credentials.
     // For production, replace with your actual SMTP server details.
     const transporter = nodemailer.createTransport({
         service: "gmail",
         auth: {
-            user: "asemmido0550@gmail.com",
-            pass: "jjfryixijogidtsh"
+            user:EMAILY  ,
+            pass:PASSWORDY
         },
     });
 
@@ -16,7 +17,7 @@ export const sendEmail = async (to:string,subjext:string,html:string, cc?:null, 
 
     const info = await transporter.sendMail({
         to,  attachments, html,
-        from: `${"MY_FIRST_PROJECT"} <${"asemmido0550@gmail.com"}>`,
+        from: `${"MY_FIRST_PROJECT"} <${EMAILY}>`,
 
     });
 

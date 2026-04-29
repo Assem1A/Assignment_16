@@ -7,6 +7,8 @@ exports.authorization = exports.auth = exports.revokeTokenKey = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const DB_1 = require("../DB");
 const common_1 = require("../common");
+const cofig_env_1 = require("../.env/cofig.env");
+const repo_1 = require("../DB/model/repo");
 const revokeTokenKey = (userID, jti) => {
     console.log(userID, jti);
     return `revokecToken::2${userID}::${jti}`;
@@ -14,9 +16,10 @@ const revokeTokenKey = (userID, jti) => {
 exports.revokeTokenKey = revokeTokenKey;
 const auth = async (req, res, next) => {
     const authentication = req.headers.authorization;
+    const userRepo = new repo_1.DBrepo(DB_1.userModel);
     let decoded;
     try {
-        decoded = jsonwebtoken_1.default.verify(authentication, "JWT_SECRET");
+        decoded = jsonwebtoken_1.default.verify(authentication, cofig_env_1.JWT_SECRET);
         if (decoded.jti && await (0, DB_1.get1)((0, exports.revokeTokenKey)(decoded.id, decoded.jti))) {
             throw new common_1.forbiddenException("Invalid  tokenss type");
         }
@@ -24,7 +27,7 @@ const auth = async (req, res, next) => {
     catch (error) {
         throw new common_1.forbiddenException("Invalid  tokenss type");
     }
-    const user = await DB_1.userModel.findById(decoded.id);
+    const user = await userRepo.findOneM({ data: { _id: decoded.id }, projection: {} });
     if (!user)
         throw new common_1.notFoundException("user not found");
     req.user = {

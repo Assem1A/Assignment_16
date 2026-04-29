@@ -4,6 +4,7 @@ import { authRouter } from "./modules";
 import { globalErrorHandler } from "./middleware";
 import { connectDataBase, connectRedis } from "./DB";
 import { userRouter } from "./modules/user";
+import { PORT } from './.env/cofig.env';
 const bootsrap=async()=>{
 console.log("hla hla hla");
 const app: Express =express()
@@ -19,8 +20,10 @@ app.get('/*dummy',(req:Request,res:Response,next:NextFunction)=>{
     res.status(404).json({msg:"braaaaaa"})
 })
 app.use(globalErrorHandler)
-app.listen(3000,()=>{
+app.listen(PORT,()=>{
     console.log("mahmoud abo rsou");
+    console.log(PORT);
+    
     
 })
 }

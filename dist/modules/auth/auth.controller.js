@@ -7,16 +7,12 @@ const express_1 = require("express");
 const auth_service_1 = __importDefault(require("./auth.service"));
 const response_1 = require("../../common/response");
 const auth_validation_1 = require("./auth.validation");
-const common_1 = require("../../common");
+const middleware_1 = require("../../middleware");
 const router = (0, express_1.Router)();
-router.post('/signup', async (req, res, next) => {
-    const result = await auth_validation_1.signupSchema.body.safeParseAsync(req.body);
-    if (!result.success) {
-        throw new common_1.BadRequestException("validation error", {
-            cause: result.error.flatten(),
-        });
-    }
+router.post('/signup', (0, middleware_1.validation)(auth_validation_1.signupSchema), async (req, res, next) => {
+    console.log("gender");
     const data = await auth_service_1.default.signup(req.body);
+    console.log("gender");
     return (0, response_1.successResponse)({
         res,
         message: "Account created successfully",
@@ -24,26 +20,17 @@ router.post('/signup', async (req, res, next) => {
         data
     });
 });
-router.patch("/confirm-Email", async (req, res, next) => {
-    const result = await auth_validation_1.confirmEmailSchema.body.safeParseAsync(req.body);
-    if (result.success) {
-        const data = await auth_service_1.default.confirmEmail(req.body);
-        return (0, response_1.successResponse)({
-            res,
-            message: "email verified successfully",
-            status: 200,
-            data
-        });
-    }
-    else {
-        throw new common_1.BadRequestException("validation error", {
-            cause: result.error.flatten(),
-        });
-    }
+router.patch("/confirm-Email", (0, middleware_1.validation)(auth_validation_1.confirmEmailSchema), async (req, res, next) => {
+    const data = await auth_service_1.default.confirmEmail(req.body);
+    return (0, response_1.successResponse)({
+        res,
+        message: "email verified successfully",
+        status: 200,
+        data
+    });
 });
-router.patch("/resend-confirm-email", async (req, res, next) => {
-    const validation = await auth_validation_1.resendConfirmEmailSchema.body.safeParse(req.body);
-    if (validation.success) {
+router.patch("/resend-confirm-email", (0, middleware_1.validation)(auth_validation_1.resendConfirmEmailSchema), async (req, res, next) => {
+    {
         const data = await auth_service_1.default.reSendConfirmEmail(req.body);
         return (0, response_1.successResponse)({
             res,
@@ -52,15 +39,9 @@ router.patch("/resend-confirm-email", async (req, res, next) => {
             data
         });
     }
-    else {
-        throw new common_1.BadRequestException("validation error", {
-            cause: validation.error.flatten(),
-        });
-    }
 });
-router.post("/login", async (req, res, next) => {
-    const result = await auth_validation_1.loginSchema.body.safeParseAsync(req.body);
-    if (result.success) {
+router.post("/login", (0, middleware_1.validation)(auth_validation_1.loginSchema), async (req, res, next) => {
+    {
         const data = await auth_service_1.default.login(req.body);
         return (0, response_1.successResponse)({
             res,
@@ -69,15 +50,9 @@ router.post("/login", async (req, res, next) => {
             data
         });
     }
-    else {
-        throw new common_1.BadRequestException("validation error", {
-            cause: result.error.flatten(),
-        });
-    }
 });
-router.patch('/forget-password-otp', async (req, res, next) => {
-    const result = await auth_validation_1.forgetPasswordSchema.body.safeParseAsync(req.body);
-    if (result.success) {
+router.patch('/forget-password-otp', (0, middleware_1.validation)(auth_validation_1.forgetPasswordSchema), async (req, res, next) => {
+    {
         await auth_service_1.default.forgetPasswordOTP(req.body);
         return (0, response_1.successResponse)({
             res,
@@ -85,26 +60,13 @@ router.patch('/forget-password-otp', async (req, res, next) => {
             status: 200,
         });
     }
-    else {
-        throw new common_1.BadRequestException("validation error", {
-            cause: result.error.flatten(),
-        });
-    }
 });
-router.patch('/forget-password', async (req, res, next) => {
-    const result = await auth_validation_1.resendConfirmEmailSchema.body.safeParseAsync(req.body);
-    if (result.success) {
-        await auth_service_1.default.forgetPassword(req.body);
-        return (0, response_1.successResponse)({
-            res,
-            message: "we have sent to you OTP",
-            status: 200,
-        });
-    }
-    else {
-        throw new common_1.BadRequestException("validation error", {
-            cause: result.error.flatten(),
-        });
-    }
+router.patch('/forget-password', (0, middleware_1.validation)(auth_validation_1.resendConfirmEmailSchema), async (req, res, next) => {
+    await auth_service_1.default.forgetPassword(req.body);
+    return (0, response_1.successResponse)({
+        res,
+        message: "we have sent to you OTP",
+        status: 200,
+    });
 });
 exports.default = router;

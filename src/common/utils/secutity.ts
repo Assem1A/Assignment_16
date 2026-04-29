@@ -1,0 +1,31 @@
+import crypto from 'node:crypto';
+import { BadRequestException } from '../exceptions';
+import { ENC_KEY } from '../../.env/cofig.env';
+
+
+export const generateEncryption = async (plaintext: string): Promise<string> => {
+    const iv = crypto.randomBytes(16);
+    const cipherIvVector = crypto.createCipheriv('aes-256-cbc', ENC_KEY as string, iv);
+
+    let cipherText = cipherIvVector.update(plaintext, 'utf-8', 'hex');
+    cipherText += cipherIvVector.final('hex');
+
+    console.log({ iv, cipherIvVector, cipherText, ivv: iv.toString('hex') });
+    return `${iv.toString('hex')}:${cipherText}`;
+};
+
+export const generateDecryption = async (cipherText: string): Promise<string> => {
+    const [iv, encryption] = cipherText.split(':') || [] as string[];
+    if (!iv || !encryption) {
+        throw new BadRequestException('Invalid encryption parts');
+    }
+
+    const ivLikeBinary = Buffer.from(iv, 'hex');
+    console.log({ iv, ivLikeBinary, encryption });
+
+    const deCipherIvVector = crypto.createDecipheriv('aes-256-cbc', ENC_KEY as string, ivLikeBinary);
+    let plaintext = deCipherIvVector.update(encryption, 'hex', 'utf-8');
+    plaintext += deCipherIvVector.final('utf-8');
+
+    return plaintext;
+};

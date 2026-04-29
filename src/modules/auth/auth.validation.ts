@@ -14,6 +14,10 @@ export const signupSchema={
   }).refine((data)=>{
     return data.password===data.confirmPassword
   },{error:"mismatach"})
+  ,
+  query:z.object({
+    flag:z.coerce.boolean()
+  }).strict()
 }
 export const confirmEmailSchema={
   body:  z.strictObject({

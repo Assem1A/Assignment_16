@@ -4,6 +4,9 @@ import {JwtPayload} from "jsonwebtoken"
 
 import { get1, userModel } from "../DB";
 import { forbiddenException, notFoundException } from "../common";
+import { JWT_SECRET } from "../.env/cofig.env";
+import { DBrepo } from "../DB/model/repo";
+import { IUser } from "../common/interfaces";
 export const revokeTokenKey = (userID:string, jti:string) => {
   console.log(userID, jti);
 
@@ -12,7 +15,7 @@ export const revokeTokenKey = (userID:string, jti:string) => {
 export interface myreq extends Request{
        user?:  {
   id: string;
-  email: string;
+  email: String;
   role: number;
 };
       decoded?: {
@@ -23,9 +26,10 @@ export interface myreq extends Request{
 }
 export const auth = async (req: myreq, res: Response, next: NextFunction) => {
     const authentication = req.headers.authorization as string
+    const userRepo:DBrepo<IUser>=new DBrepo(userModel)
     let decoded
     try {
-        decoded = jwt.verify(authentication, "JWT_SECRET") as JwtPayload ;
+        decoded = jwt.verify(authentication, JWT_SECRET as string) as JwtPayload ;
 
         if (decoded.jti && await get1(revokeTokenKey(decoded.id, decoded.jti))) {
           throw new forbiddenException( "Invalid  tokenss type");
@@ -35,7 +39,7 @@ export const auth = async (req: myreq, res: Response, next: NextFunction) => {
     catch (error) {
    throw new forbiddenException( "Invalid  tokenss type");
     }
-        const user = await userModel.findById(decoded.id)
+        const user = await userRepo.findOneM({data:{_id:decoded.id},projection:{}})
     if (!user) throw new notFoundException("user not found")
     req.user = {
     id: user._id.toString(),

@@ -5,14 +5,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_middleware_1 = require("../../middleware/auth.middleware");
-const DB_1 = require("../../DB");
 const response_1 = require("../../common/response");
 const user_validation_1 = require("./user.validation");
-const common_1 = require("../../common");
 const user_service_1 = __importDefault(require("./user.service"));
+const middleware_1 = require("../../middleware");
 const router = (0, express_1.Router)();
 router.get("/get-my-profile", auth_middleware_1.auth, (0, auth_middleware_1.authorization)(0), async (req, res, next) => {
-    const user = await DB_1.userModel.findById(req.user.id);
+    const user = await user_service_1.default.getProfile(req.user?.id);
     return (0, response_1.successResponse)({
         res,
         message: "user selected successfully",
@@ -24,13 +23,7 @@ router.get("/get-my-profile", auth_middleware_1.auth, (0, auth_middleware_1.auth
         }
     });
 });
-router.patch("/update-password", auth_middleware_1.auth, async (req, res, next) => {
-    const result = await user_validation_1.updatePasswordSchema.body.safeParseAsync(req.body);
-    if (!result.success) {
-        throw new common_1.BadRequestException("validation error", {
-            cause: result.error.flatten(),
-        });
-    }
+router.patch("/update-password", (0, middleware_1.validation)(user_validation_1.updatePasswordSchema), auth_middleware_1.auth, async (req, res, next) => {
     user_service_1.default.updatePassword({ id: req.user?.id, oldPassword: req.body.oldPassword, password: req.body.password });
     return (0, response_1.successResponse)({
         res,
@@ -38,13 +31,7 @@ router.patch("/update-password", auth_middleware_1.auth, async (req, res, next) 
         status: 200
     });
 });
-router.post("/logout", auth_middleware_1.auth, async (req, res, next) => {
-    const valids = await user_validation_1.logoutSchema.body.safeParseAsync(req.body);
-    if (!valids.success) {
-        throw new common_1.BadRequestException("validation error", {
-            cause: valids.error.flatten(),
-        });
-    }
+router.post("/logout", (0, middleware_1.validation)(user_validation_1.logoutSchema), auth_middleware_1.auth, async (req, res, next) => {
     console.log(req.body.flag);
     user_service_1.default.logout({ id: req.user?.id, decoded: req.decoded, flag: req.body.flag });
     return (0, response_1.successResponse)({

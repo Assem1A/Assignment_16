@@ -7,10 +7,17 @@ import { IConfirmEmailDTO, Iemail, IForgetPassword, ILoginDTO, ISignupDTO } from
 import { compare, hash } from "bcrypt"
 import { IConfirmEmailGeneric, IloginGeneric, ISignupGeneric } from "./auth.entity";
 import { randomUUID } from "node:crypto";
-import jwt from "jsonwebtoken"
+import jwt ,{ SignOptions }from "jsonwebtoken"
+import { HASH_ROUND, JWT_SECRET, REFRESH_SECRET, REFRESH_SECRETtokenexpires, tokenexpires } from "../../.env/cofig.env";
+import { DBrepo } from "../../DB/model/repo";
+import { GenderEnum, ProviderEnum } from "../../common/enums";
+import { IUser } from "../../common/interfaces";
 
 export class AuthService {
-    constructor() { }
+    private userRepo:DBrepo<IUser>
+    constructor() { 
+        this.userRepo=new DBrepo(userModel)
+    }
     protected generateOtpAndSendEmail = async (email: string) => {
         if (await TTL(`OTP::User::blocked2::${email}`) > 0) {
             throw new Error("you are already blocked", { cause: { status: 409 } })
@@ -26,7 +33,7 @@ export class AuthService {
             throw new Error("you are blocked", { cause: { status: 409 } })
         }
         const code = `${createNumberOtp()}`;
-        const hashedCode = await hash(code, 8)
+        const hashedCode = await hash(code, HASH_ROUND )
         await set({ key: `OTP::User::2${email}`, val: `${hashedCode}`, ttl: 120 })
         cmo > 0 ? await inc(`otp:max:req:2${email}`) : await set({ key: `otp:max:req:2${email}`, val: 1, ttl: 300 })
         await sendEmail(email, "confirm-email",
@@ -48,24 +55,36 @@ export class AuthService {
                 ttl: 300
             })
         }
-        const user = await userModel.findOne({ email, provider: "system", confirmEmail: { $exists: true } })
+        const user = await this.userRepo.findOneM({data:{ email, provider:ProviderEnum.system, confirmEmail: { $exists: true }},projection:{} })
         if (!user) throw new notFoundException("invalid email or password")
-        const wrongPassword = !(await compare(password, user.password))
+        const wrongPassword = !(await compare(password, user.password as string))
         if (wrongPassword) {
             gettings > 0 ? await inc(`wrongPAssword2${email}`) : await set({ key: `wrongPAssword2${email}`, val: 1, ttl: 300 })
             throw new notFoundException("invalid email or password")
         }
-        const jwtid = randomUUID()
-        const token = jwt.sign(
-            { id: user._id, email },
-            "JWT_SECRET",
-            { expiresIn: "15m", jwtid }
-        );
-        const refreshToken = jwt.sign(
-            { sub: user.id },
-            "REFRESH_SECRET",
-            { expiresIn: "7d", jwtid }
-        );
+       const jwtid = randomUUID();
+
+const accessOptions: SignOptions = {
+  expiresIn: tokenexpires as NonNullable<SignOptions["expiresIn"]>,
+  jwtid,
+};
+
+const refreshOptions: SignOptions = {
+  expiresIn: REFRESH_SECRETtokenexpires as NonNullable<SignOptions["expiresIn"]>,
+  jwtid,
+};
+
+const token = jwt.sign(
+  { id: user._id, email },
+  JWT_SECRET as string,
+  accessOptions
+);
+
+const refreshToken = jwt.sign(
+  { sub: user.id },
+  REFRESH_SECRET as string,
+  refreshOptions
+);
         await delete1(`wrongPAssword2${email}`)
         return { token, refreshToken }
 
@@ -73,21 +92,24 @@ export class AuthService {
     }
     public signup = async (data: ISignupDTO): Promise<ISignupGeneric> => {
         const { email, password, username, gender } = data;
-        const found = await userModel.findOne({ email })
+        const found = await this.userRepo.findOneM({data:{ email },projection:{}})
         if (found) throw new conflictException("user already exists");
-        const hashed = await hash(password, 8)
+        
+        const hashed = await hash(password, HASH_ROUND )
+const genderValue = gender === "female" ? GenderEnum.female : GenderEnum.male;
 
-        const user = await userModel.create({ email, password: (hashed), gender, username })
+        const user = await this.userRepo.create({data:{ username, email, password: hashed, provider: ProviderEnum.system, gender: genderValue }
+})
         await this.generateOtpAndSendEmail(email)
-        return {
-            email: user.email,
+        return { 
+            email: user.email ,
             username: user.username,
             gender: user.gender
         }
     }
     public confirmEmail = async (data: IConfirmEmailDTO): Promise<IConfirmEmailGeneric> => {
         const { email, otp } = data
-        let user1 = await userModel.findOne({ email, confirmEmail: { $exists: false }, provider: "system" })
+        let user1 = await this.userRepo.findOneM({data:{ email, confirmEmail: { $exists: false }, provider:ProviderEnum.system },projection:{}})
         if (!user1) throw new notFoundException("user not found")
         const hasshedOTP = await get1(`OTP::User::2${email}`)
         if (!hasshedOTP) {
@@ -114,14 +136,14 @@ export class AuthService {
     }
     public reSendConfirmEmail = async (data: IConfirmEmailGeneric): Promise<IConfirmEmailGeneric> => {
         const { email } = data
-        let user1 = await userModel.findOne({ email, confirmEmail: { $exists: false }, provider: "system" })
+        let user1 = await this.userRepo.findOneM({data:{ email, confirmEmail: { $exists: false }, provider: ProviderEnum.system },projection:{}})
         if (!user1) throw new notFoundException("user not found")
         if (await TTL(`OTP::User::2${email}`) > 0) {
             throw new conflictException("enta aslan m3ak otp")
         }
 
 
-        this.generateOtpAndSendEmail(email)
+        this.generateOtpAndSendEmail(email as string)
         return {
             email
         }
@@ -144,12 +166,11 @@ export class AuthService {
             throw new BadRequestException("OTP is not correct")
   }
 
-  const user = await userModel.findOne({ email ,confirmEmail:{$exists:true},provider:"system"})
-
+  const user =await this.userRepo.findOneM({data:{ email, confirmEmail: { $exists: true }, provider: ProviderEnum.system },projection:{}})
   if (!user) {
  throw new notFoundException("user not found")  }
 
-  const hashedPassword = await hash(password, 8)
+  const hashedPassword = await hash(password, HASH_ROUND )
 
   user.password = hashedPassword
 

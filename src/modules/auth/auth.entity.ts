@@ -1,12 +1,14 @@
+import { GenderEnum } from "../../common/enums"
+
 export interface IloginGeneric {
-  token: string
-  refreshToken:string
+  token: String
+  refreshToken:String
 }
 export interface ISignupGeneric extends IConfirmEmailGeneric {
-username:string 
-gender:string
+username:String |undefined
+gender:GenderEnum
 
 }
 export interface IConfirmEmailGeneric {
-    email:string
+    email:String
 }

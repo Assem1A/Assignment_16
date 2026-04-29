@@ -8,6 +8,7 @@ const modules_1 = require("./modules");
 const middleware_1 = require("./middleware");
 const DB_1 = require("./DB");
 const user_1 = require("./modules/user");
+const cofig_env_1 = require("./.env/cofig.env");
 const bootsrap = async () => {
     console.log("hla hla hla");
     const app = (0, express_1.default)();
@@ -23,8 +24,9 @@ const bootsrap = async () => {
         res.status(404).json({ msg: "braaaaaa" });
     });
     app.use(middleware_1.globalErrorHandler);
-    app.listen(3000, () => {
+    app.listen(cofig_env_1.PORT, () => {
         console.log("mahmoud abo rsou");
+        console.log(cofig_env_1.PORT);
     });
 };
 exports.default = bootsrap;
