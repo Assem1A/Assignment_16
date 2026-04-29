@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ENC_KEY = exports.PASSWORDY = exports.EMAILY = exports.REDISLINK = exports.DBLINK = exports.REFRESH_SECRETtokenexpires = exports.tokenexpires = exports.REFRESH_SECRET = exports.JWT_SECRET = exports.HASH_ROUND = exports.PORT = void 0;
+const dotenv_1 = require("dotenv");
+const node_path_1 = require("node:path");
+(0, dotenv_1.config)({ path: (0, node_path_1.resolve)("./src/dev.env") });
+exports.PORT = process.env.PORT;
+exports.HASH_ROUND = Number(process.env.HASH_ROUND);
+exports.JWT_SECRET = process.env.JWT_SECRET;
+exports.REFRESH_SECRET = process.env.REFRESH_SECRET;
+exports.tokenexpires = process.env.TOKENTIME;
+exports.REFRESH_SECRETtokenexpires = process.env.REFRESH_SECRET1;
+exports.DBLINK = process.env.DBLINK;
+exports.REDISLINK = process.env.REDISLINK;
+exports.EMAILY = process.env.EMAILY;
+exports.PASSWORDY = process.env.PASSWORDY;
+exports.ENC_KEY = process.env.ENC_KEY;
