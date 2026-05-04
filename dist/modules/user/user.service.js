@@ -25,25 +25,23 @@ class userService {
             throw new common_1.BadRequestException("user password must not be the same with old password");
         }
         user.password = await (0, bcrypt_1.hash)(password, cofig_env_1.HASH_ROUND);
+        user.CCT = new Date;
         user.save();
     };
     logout = async (data) => {
         const { id, decoded, flag } = data;
-        console.log(flag);
         const user = await this.userRepo.findOneM({ data: { _id: id }, projection: {} });
         if (!user)
             throw new common_1.notFoundException("user not found");
         switch (flag) {
             case 1:
                 user.CCT = new Date;
-                console.log("omars");
                 await user.save();
-                console.log(await (0, DB_1.keys)(`revokecToken::2${id}`));
-                await (0, DB_1.delete1)(await (0, DB_1.keys)(`revokecToken::2${id}`));
+                await (0, DB_1.delete1)(await (0, DB_1.keys)((0, auth_middleware_1.tokenNameInRedis)("rt2", id)));
                 break;
             default:
                 await (0, DB_1.set)({
-                    key: (0, auth_middleware_1.revokeTokenKey)(id, decoded?.jti),
+                    key: (0, auth_middleware_1.tokenNameInRedis)("rt2", id, decoded?.jti),
                     val: decoded?.jti,
                     ttl: (decoded?.iat + 7 * 24 * 60 * 60)
                 });

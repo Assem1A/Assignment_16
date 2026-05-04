@@ -1,6 +1,6 @@
 import { UpdateOptions } from "mongodb";
 import { DeleteResult, UpdateResult, UpdateWithAggregationPipeline } from "mongoose";
-import { CreateOptions, HydratedDocument, Model,MongooseUpdateQueryOptions,QueryFilter,QueryOptions, UpdateQuery } from "mongoose";
+import { CreateOptions, HydratedDocument, Model,QueryFilter,QueryOptions, UpdateQuery } from "mongoose";
 import { ProjectionType } from "mongoose";
 
 export class DBrepo<T>{

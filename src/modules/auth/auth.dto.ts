@@ -1,4 +1,3 @@
-import { GenderEnum } from "../../common/enums"
 
 export interface ILoginDTO extends Iemail{
 

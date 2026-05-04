@@ -1,7 +1,4 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("../../common");
@@ -10,24 +7,24 @@ const otp_1 = require("../../common/utils/otp");
 const sendEmail_1 = require("../../common/utils/sendEmail");
 const DB_1 = require("../../DB");
 const bcrypt_1 = require("bcrypt");
-const node_crypto_1 = require("node:crypto");
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const cofig_env_1 = require("../../.env/cofig.env");
 const repo_1 = require("../../DB/model/repo");
 const enums_1 = require("../../common/enums");
+const auth_middleware_1 = require("../../middleware/auth.middleware");
+const token_1 = require("../../common/utils/token");
 class AuthService {
     userRepo;
     constructor() {
         this.userRepo = new repo_1.DBrepo(DB_1.userModel);
     }
     generateOtpAndSendEmail = async (email) => {
-        if (await (0, DB_1.TTL)(`OTP::User::blocked2::${email}`) > 0) {
+        if (await (0, DB_1.TTL)((0, auth_middleware_1.tokenNameInRedis)("UB1", email)) > 0) {
             throw new Error("you are already blocked", { cause: { status: 409 } });
         }
-        const cmo = Number(await (0, DB_1.get1)(`otp:max:req:2${email}`));
+        const cmo = Number(await (0, DB_1.get1)((0, auth_middleware_1.tokenNameInRedis)("OTPMax1", email)));
         if (cmo >= 5) {
             await (0, DB_1.set)({
-                key: `OTP::User::blocked2::${email}`,
+                key: (0, auth_middleware_1.tokenNameInRedis)("UB1", email),
                 val: 0,
                 ttl: 300
             });
@@ -35,44 +32,36 @@ class AuthService {
         }
         const code = `${(0, otp_1.createNumberOtp)()}`;
         const hashedCode = await (0, bcrypt_1.hash)(code, cofig_env_1.HASH_ROUND);
-        await (0, DB_1.set)({ key: `OTP::User::2${email}`, val: `${hashedCode}`, ttl: 120 });
-        cmo > 0 ? await (0, DB_1.inc)(`otp:max:req:2${email}`) : await (0, DB_1.set)({ key: `otp:max:req:2${email}`, val: 1, ttl: 300 });
+        await (0, DB_1.set)({ key: (0, auth_middleware_1.tokenNameInRedis)("OTP1", email), val: hashedCode, ttl: 120 });
+        cmo > 0 ? await (0, DB_1.inc)((0, auth_middleware_1.tokenNameInRedis)("OTPMax1", email)) : await (0, DB_1.set)({ key: (0, auth_middleware_1.tokenNameInRedis)("OTPMax1", email), val: 1, ttl: 300 });
         await (0, sendEmail_1.sendEmail)(email, "confirm-email", (0, emailTemp_1.funcs)(code));
     };
     login = async (data) => {
         const { email, password } = data;
-        const gettings = (Number(await (0, DB_1.get1)(`wrongPAssword2${email}`))) || 0;
-        const blockedTTL = Number(await (0, DB_1.TTL)(`blockedwrongPAssword2${email}`));
+        const gettings = (Number(await (0, DB_1.get1)((0, auth_middleware_1.tokenNameInRedis)("WrongPassword1", email)))) || 0;
+        const blockedTTL = Number(await (0, DB_1.TTL)((0, auth_middleware_1.tokenNameInRedis)("BlockedUser1", email)));
         if (blockedTTL > 0) {
             throw new common_1.notFoundException(`you are blocked for${blockedTTL}`);
         }
         if (gettings >= 4) {
             await (0, DB_1.set)({
-                key: `blockedwrongPAssword2${email}`,
+                key: (0, auth_middleware_1.tokenNameInRedis)("BlockedUser1", email),
                 val: 1,
                 ttl: 300
             });
+            await (0, DB_1.delete1)((0, auth_middleware_1.tokenNameInRedis)("WrongPassword1", email));
         }
         const user = await this.userRepo.findOneM({ data: { email, provider: enums_1.ProviderEnum.system, confirmEmail: { $exists: true } }, projection: {} });
         if (!user)
             throw new common_1.notFoundException("invalid email or password");
         const wrongPassword = !(await (0, bcrypt_1.compare)(password, user.password));
         if (wrongPassword) {
-            gettings > 0 ? await (0, DB_1.inc)(`wrongPAssword2${email}`) : await (0, DB_1.set)({ key: `wrongPAssword2${email}`, val: 1, ttl: 300 });
+            gettings > 0 ? await (0, DB_1.inc)((0, auth_middleware_1.tokenNameInRedis)("WrongPassword1", email)) : await (0, DB_1.set)({ key: (0, auth_middleware_1.tokenNameInRedis)("WrongPassword1", email), val: 1, ttl: 300 });
             throw new common_1.notFoundException("invalid email or password");
         }
-        const jwtid = (0, node_crypto_1.randomUUID)();
-        const accessOptions = {
-            expiresIn: cofig_env_1.tokenexpires,
-            jwtid,
-        };
-        const refreshOptions = {
-            expiresIn: cofig_env_1.REFRESH_SECRETtokenexpires,
-            jwtid,
-        };
-        const token = jsonwebtoken_1.default.sign({ id: user._id, email }, cofig_env_1.JWT_SECRET, accessOptions);
-        const refreshToken = jsonwebtoken_1.default.sign({ sub: user.id }, cofig_env_1.REFRESH_SECRET, refreshOptions);
-        await (0, DB_1.delete1)(`wrongPAssword2${email}`);
+        const token = (0, token_1.tokenSign)({ id: user._id, email }, cofig_env_1.JWT_SECRET, cofig_env_1.tokenexpires);
+        const refreshToken = (0, token_1.tokenSign)({ sub: user.id }, cofig_env_1.REFRESH_SECRET, cofig_env_1.REFRESH_SECRETtokenexpires);
+        await (0, DB_1.delete1)((0, auth_middleware_1.tokenNameInRedis)("WrongPassword1", email));
         return { token, refreshToken };
     };
     signup = async (data) => {
@@ -82,13 +71,15 @@ class AuthService {
             throw new common_1.conflictException("user already exists");
         const hashed = await (0, bcrypt_1.hash)(password, cofig_env_1.HASH_ROUND);
         const genderValue = gender === "female" ? enums_1.GenderEnum.female : enums_1.GenderEnum.male;
-        const user = await this.userRepo.create({ data: { username, email, password: hashed, provider: enums_1.ProviderEnum.system, gender: genderValue }
+        const user = await this.userRepo.create({
+            data: { username, email, password: hashed, provider: enums_1.ProviderEnum.system, gender: genderValue }
         });
         await this.generateOtpAndSendEmail(email);
         return {
             email: user.email,
             username: user.username,
-            gender: user.gender
+            gender: user.gender,
+            id: user._id
         };
     };
     confirmEmail = async (data) => {
@@ -96,7 +87,7 @@ class AuthService {
         let user1 = await this.userRepo.findOneM({ data: { email, confirmEmail: { $exists: false }, provider: enums_1.ProviderEnum.system }, projection: {} });
         if (!user1)
             throw new common_1.notFoundException("user not found");
-        const hasshedOTP = await (0, DB_1.get1)(`OTP::User::2${email}`);
+        const hasshedOTP = await (0, DB_1.get1)((0, auth_middleware_1.tokenNameInRedis)("OTP1", email));
         if (!hasshedOTP) {
             throw new common_1.notFoundException("OTP not found");
         }
@@ -105,34 +96,31 @@ class AuthService {
         }
         user1.confirmEmail = new Date();
         await user1.save();
-        await DB_1.userModel.updateOne({ email }, { $unset: { verificationExpires: 1 } });
-        await (0, DB_1.delete1)(`OTP::User::2${email}`);
-        await (0, DB_1.delete1)(`OTP::User::blocked2::${email}`);
-        await (0, DB_1.delete1)(`otp:max:req:2${email}`);
-        return {
-            email
-        };
+        await this.userRepo.update({
+            filter: { email },
+            update: { $unset: { verificationExpires: 1 } }
+        });
+        await (0, DB_1.delete1)((0, auth_middleware_1.tokenNameInRedis)("OTP1", email));
+        await (0, DB_1.delete1)((0, auth_middleware_1.tokenNameInRedis)("UB1", email));
+        await (0, DB_1.delete1)((0, auth_middleware_1.tokenNameInRedis)("OTPMax1", email));
     };
     reSendConfirmEmail = async (data) => {
         const { email } = data;
         let user1 = await this.userRepo.findOneM({ data: { email, confirmEmail: { $exists: false }, provider: enums_1.ProviderEnum.system }, projection: {} });
         if (!user1)
             throw new common_1.notFoundException("user not found");
-        if (await (0, DB_1.TTL)(`OTP::User::2${email}`) > 0) {
+        if (await (0, DB_1.TTL)((0, auth_middleware_1.tokenNameInRedis)("OTP1", email)) > 0) {
             throw new common_1.conflictException("enta aslan m3ak otp");
         }
         this.generateOtpAndSendEmail(email);
-        return {
-            email
-        };
     };
-    forgetPassword = (data) => {
+    forgetPassword = async (data) => {
         const { email } = data;
-        this.generateOtpAndSendEmail(email);
+        await this.generateOtpAndSendEmail(email);
     };
     forgetPasswordOTP = async (data) => {
         const { email, password, otp } = data;
-        const hashedOtp = await (0, DB_1.get1)(`OTP::User::2${email}`);
+        const hashedOtp = await (0, DB_1.get1)((0, auth_middleware_1.tokenNameInRedis)("OTP1", email));
         if (!hashedOtp) {
             throw new common_1.notFoundException("OTP not found");
         }
@@ -147,9 +135,9 @@ class AuthService {
         const hashedPassword = await (0, bcrypt_1.hash)(password, cofig_env_1.HASH_ROUND);
         user.password = hashedPassword;
         await user.save();
-        await (0, DB_1.delete1)(`OTP::User::2${email}`);
-        await (0, DB_1.delete1)(`OTP::User::blocked2::${email}`);
-        await (0, DB_1.delete1)(`otp:max:req:2${email}`);
+        await (0, DB_1.delete1)((0, auth_middleware_1.tokenNameInRedis)("OTP1", email));
+        await (0, DB_1.delete1)((0, auth_middleware_1.tokenNameInRedis)("UB1", email));
+        await (0, DB_1.delete1)((0, auth_middleware_1.tokenNameInRedis)("OTPMax1", email));
     };
 }
 exports.AuthService = AuthService;

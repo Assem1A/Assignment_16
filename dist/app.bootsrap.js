@@ -25,7 +25,7 @@ const bootsrap = async () => {
     });
     app.use(middleware_1.globalErrorHandler);
     app.listen(cofig_env_1.PORT, () => {
-        console.log("mahmoud abo rsou");
+        console.log("{Assem}");
         console.log(cofig_env_1.PORT);
     });
 };

@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response, Router } from "express";
 import authService from "./auth.service";
 import { successResponse } from "../../common/response";
-import { IConfirmEmailGeneric, IloginGeneric, ISignupGeneric } from "./auth.entity";
+import {  IloginGeneric, ISignupGeneric } from "./auth.entity";
 import { confirmEmailSchema, forgetPasswordSchema, loginSchema, resendConfirmEmailSchema, signupSchema } from "./auth.validation";
 import { validation } from "../../middleware";
 const router = Router()
@@ -24,28 +24,27 @@ router.post(
   });
 router.patch("/confirm-Email", validation(confirmEmailSchema), async (req: Request, res: Response, next: NextFunction): Promise<Response> => {
 
-  const data = await authService.confirmEmail(req.body)
+ await authService.confirmEmail(req.body)
 
-  return successResponse<IConfirmEmailGeneric>({
+  return successResponse<void>({
 
     res,
     message: "email verified successfully",
     status: 200,
-    data
   })
 
 
 })
 router.patch("/resend-confirm-email", validation(resendConfirmEmailSchema), async (req: Request, res: Response, next: NextFunction): Promise<Response> => {
   {
-    const data = await authService.reSendConfirmEmail(req.body)
+ await authService.reSendConfirmEmail(req.body)
 
-    return successResponse<IConfirmEmailGeneric>({
+    return successResponse<void>({
 
       res,
       message: "email sent successfully",
       status: 200,
-      data
+      
     })
   }
 

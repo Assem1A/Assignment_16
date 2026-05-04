@@ -21,22 +21,20 @@ router.post('/signup', (0, middleware_1.validation)(auth_validation_1.signupSche
     });
 });
 router.patch("/confirm-Email", (0, middleware_1.validation)(auth_validation_1.confirmEmailSchema), async (req, res, next) => {
-    const data = await auth_service_1.default.confirmEmail(req.body);
+    await auth_service_1.default.confirmEmail(req.body);
     return (0, response_1.successResponse)({
         res,
         message: "email verified successfully",
         status: 200,
-        data
     });
 });
 router.patch("/resend-confirm-email", (0, middleware_1.validation)(auth_validation_1.resendConfirmEmailSchema), async (req, res, next) => {
     {
-        const data = await auth_service_1.default.reSendConfirmEmail(req.body);
+        await auth_service_1.default.reSendConfirmEmail(req.body);
         return (0, response_1.successResponse)({
             res,
             message: "email sent successfully",
             status: 200,
-            data
         });
     }
 });
